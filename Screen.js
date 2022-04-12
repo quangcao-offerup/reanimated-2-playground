@@ -2,6 +2,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   useAnimatedGestureHandler,
+  runOnJS,
 } from 'react-native-reanimated';
 import {SafeAreaView, StyleSheet, Text, View} from 'react-native';
 import React from 'react';
@@ -14,9 +15,10 @@ import {FlatList} from 'react-native-gesture-handler';
 export default function AnimatedStyleUpdateExample(props) {
   const panGestureHandlerRef = React.useRef(null);
   const nativeViewGestureHandlerRef = React.useRef(null);
+  const flatListRef = React.useRef(null);
 
   const tracker = useSharedValue({x: 0, y: 0});
-
+  const [enabledGesture, setEnabledGesture] = React.useState(true);
   const gestureEventHandler = useAnimatedGestureHandler(
     {
       onStart: (e) => {
@@ -25,6 +27,7 @@ export default function AnimatedStyleUpdateExample(props) {
           y: e.absoluteY,
         };
         console.log('Onstart', e.translationX, e.translationY);
+        runOnJS(setEnabledGesture)(false);
       },
       onActive: (e) => {
         tracker.value = {
@@ -78,10 +81,22 @@ export default function AnimatedStyleUpdateExample(props) {
   );
   const renderItem = ({item}) => <Item key={item.id} title={item.title} />;
 
+  const onScroll = (e) => {
+    console.log('onScroll', e.nativeEvent.contentOffset.y, !enabledGesture);
+    if (e.nativeEvent.contentOffset.y <= 0 && !enabledGesture) {
+      setEnabledGesture(true);
+    }
+    if (e.nativeEvent.contentOffset.y > 0 && enabledGesture) {
+      setEnabledGesture(false);
+    }
+  };
   /*
    *"react-native-gesture-handler": "1.10.3",
    *"react-native-reanimated": "2.3.1",
    */
+
+  console.log('enabledGesture', enabledGesture);
+
   return (
     <SafeAreaView style={styles.container}>
       <PanGestureHandler
@@ -91,24 +106,28 @@ export default function AnimatedStyleUpdateExample(props) {
         avgTouches
         minPointers={1}
         maxPointers={1}
+        // activeOffsetY={5}
+        // failOffsetY={-5}
         // failOffsetX={[-5, 5]}
         // activeOffsetX={[-10, 10]}
-        // activeOffsetY={[-10, 10]}
-        enabled>
+        activeOffsetY={[-10, 10]}
+        enabled={enabledGesture}>
         <Animated.View style={{flex: 1}} collapsable={false}>
-          <NativeViewGestureHandler
+          {/* <NativeViewGestureHandler
             ref={nativeViewGestureHandlerRef}
-            enabled
+            enabled={enabledGesture}
             simultaneousHandlers={panGestureHandlerRef}>
-            <Animated.View style={{flex: 1}} collapsable={false}>
-              <FlatList
-                data={DATA}
-                renderItem={renderItem}
-                keyExtractor={(item) => item.id}
-                bounces={false}
-                // scrollEnabled={false}
-              />
-              {/* <ScrollView
+            <Animated.View style={{flex: 1}} collapsable={false}> */}
+          <FlatList
+            waitFor={enabledGesture ? panGestureHandlerRef : flatListRef}
+            ref={flatListRef}
+            data={DATA}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id}
+            bounces={false}
+            onScroll={onScroll}
+          />
+          {/* <ScrollView
                 bounces={false}
                 //scrollEnabled={false}
               >
@@ -117,8 +136,8 @@ export default function AnimatedStyleUpdateExample(props) {
                   <Text style={styles.highlight}>App.js</Text>
                 </View>
               </ScrollView> */}
-            </Animated.View>
-          </NativeViewGestureHandler>
+          {/* </Animated.View>
+          </NativeViewGestureHandler> */}
         </Animated.View>
       </PanGestureHandler>
 
